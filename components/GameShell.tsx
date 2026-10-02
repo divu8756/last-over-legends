@@ -136,10 +136,18 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
     });
   }, []);
 
+  const [canFullscreen, setCanFullscreen] = useState(false);
+  useEffect(() => setCanFullscreen(!!document.fullscreenEnabled), []);
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void wrapRef.current?.requestFullscreen?.().catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "p") togglePause();
       if (e.key === "m") toggleMute();
+      if (e.key === "f") toggleFullscreen();
     };
     const onHidden = () => {
       if (document.hidden) setPaused(true);
@@ -150,7 +158,7 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
       window.removeEventListener("keydown", onKey);
       document.removeEventListener("visibilitychange", onHidden);
     };
-  }, [togglePause, toggleMute]);
+  }, [togglePause, toggleMute, toggleFullscreen]);
 
   function again() {
     setEnded(null);
@@ -176,15 +184,20 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
         </div>
       )}
       <div className="hud-top">
-        {hud ? <Scoreboard match={hud.match} winProb={hud.winProb} hot={hud.hot} bowler={hud.bowler} /> : <div />}
+        {hud ? <Scoreboard match={hud.match} winProb={hud.winProb} hot={hud.hot} bowler={hud.bowler} /> : <div className="scoreboard" style={{ visibility: "hidden" }} />}
+        <LowerThird caption={caption} />
         <div className="hud-buttons">
+          {canFullscreen && (
+            <button className="icon-btn" onClick={toggleFullscreen} aria-label="Fullscreen" title="Fullscreen (F)">
+              ⛶
+            </button>
+          )}
           <MuteToggle muted={muted} onToggle={toggleMute} />
           <button className="icon-btn" onClick={togglePause} aria-label="Pause" title="Pause (Esc)">
             ⏸
           </button>
         </div>
       </div>
-      <LowerThird caption={caption} />
       {paused && !ended && (
         <div className="overlay">
           <div className="card">

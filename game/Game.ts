@@ -138,6 +138,9 @@ export class Game {
   private pendingTimer: ReturnType<typeof setTimeout> | null = null;
   private nextBallAt = -1;
   private ended = false;
+  /** phone/tablet vs mouse+keyboard: changes the on-screen hints */
+  private touch = false;
+  private crowdCache: HTMLCanvasElement | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -156,6 +159,7 @@ export class Game {
     this.bowler = BOWLERS[config.seed % BOWLERS.length];
     this.fielders = FIELDERS.map(([x, z]) => ({ home: [x, z], pos: [x, z] }));
     this.winProb = winProbability(this.match);
+    this.touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true;
     this.bind();
   }
 
@@ -202,6 +206,7 @@ export class Game {
 
   private onPointerDown = (e: PointerEvent) => {
     this.sfx.unlock();
+    this.touch = e.pointerType === "touch" || e.pointerType === "pen";
     if (this.paused) return;
     if (this.phase === "ready" || (this.phase === "result" && this.nextBallAt > 0)) {
       this.requestNextBall(true);
@@ -254,6 +259,7 @@ export class Game {
     const shot = map[k];
     if (!shot) return;
     e.preventDefault();
+    this.touch = false;
     this.sfx.unlock();
     if (this.phase === "ready" || (this.phase === "result" && this.nextBallAt > 0)) {
       if (k === " " || k === "enter") this.requestNextBall(true);
@@ -709,12 +715,12 @@ export class Game {
         this.crowd.push({ x: x + (Math.random() - 0.5) * 3, y: y + (Math.random() - 0.5) * 2, c: palette[Math.floor(Math.random() * palette.length)], p: Math.random() * 6.28 });
       }
     }
+    this.crowdCache = null;
     this.stars = Array.from({ length: 60 }, () => [Math.random() * W, Math.random() * top * 0.9, Math.random()]);
   }
 
   private draw() {
     const ctx = this.ctx;
-    const { W, H } = this.cam;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const sx = (this.fx() - 0.5) * this.shake;
     const sy = (this.fx() - 0.5) * this.shake;
@@ -747,8 +753,6 @@ export class Game {
     ctx.restore();
     this.drawBanner();
     this.drawHints(t);
-    void W;
-    void H;
   }
 
   private currentBall(t: number): V3 | null {
@@ -807,16 +811,20 @@ export class Game {
     ctx.fillStyle = g;
     ctx.fillRect(0, top, W, horizon - top);
     const wave = this.crowdWave >= 0 ? (this.clock - this.crowdWave) / 1800 : -1;
-    for (const c of this.crowd) {
-      let lift = 0;
-      if (wave >= 0 && wave < 2.2) {
-        const front = (wave % 1.1) * W * 1.4 - W * 0.2;
-        lift = Math.max(0, 1 - Math.abs(c.x - front) / 90) * 5;
+    if (wave >= 0 && wave < 2.2) {
+      // celebrating: animate every fan
+      const front = (wave % 1.1) * W * 1.4 - W * 0.2;
+      for (const c of this.crowd) {
+        const lift = Math.max(0, 1 - Math.abs(c.x - front) / 90) * 5;
+        ctx.globalAlpha = 0.55 + 0.45 * Math.sin(this.clock / 120 + c.p);
+        ctx.fillStyle = c.c;
+        ctx.fillRect(c.x, c.y - lift, 3, 3);
       }
-      const flicker = 0.55 + 0.45 * Math.sin(this.clock / 300 + c.p);
-      ctx.globalAlpha = flicker;
-      ctx.fillStyle = c.c;
-      ctx.fillRect(c.x, c.y - lift, 3, 3);
+    } else {
+      // calm: one cached bitmap with a gentle shimmer
+      if (!this.crowdCache) this.crowdCache = this.renderCrowd();
+      ctx.globalAlpha = 0.85 + 0.15 * Math.sin(this.clock / 700);
+      ctx.drawImage(this.crowdCache, 0, 0, W, this.cam.H);
     }
     ctx.globalAlpha = 1;
     // advertising boards
@@ -827,6 +835,20 @@ export class Game {
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     for (let x = 4; x < W; x += 120) ctx.fillText("LAST OVER LEGENDS", x, horizon - 2);
+  }
+
+  private renderCrowd(): HTMLCanvasElement {
+    const c = document.createElement("canvas");
+    c.width = Math.round(this.cam.W * this.dpr);
+    c.height = Math.round(this.cam.H * this.dpr);
+    const g = c.getContext("2d")!;
+    g.scale(this.dpr, this.dpr);
+    for (const f of this.crowd) {
+      g.globalAlpha = 0.55 + 0.45 * Math.sin(f.p * 3);
+      g.fillStyle = f.c;
+      g.fillRect(f.x, f.y, 3, 3);
+    }
+    return c;
   }
 
   private drawField() {
@@ -1065,19 +1087,25 @@ export class Game {
       const a = 0.6 + 0.4 * Math.sin(this.clock / 300);
       ctx.fillStyle = `rgba(255,255,255,${a})`;
       ctx.font = `800 ${Math.min(28, W * 0.05)}px system-ui, sans-serif`;
-      ctx.fillText("TAP or press SPACE to face the first ball", W / 2, H * 0.52);
-      ctx.font = `600 ${Math.min(16, W * 0.034)}px system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.75)";
-      ctx.fillText("Tap LEFT / MIDDLE / RIGHT to play leg / straight / off · SWIPE UP to loft", W / 2, H * 0.52 + 32);
-      ctx.fillText("Keys: A S D ground · Q W E lofted · arrows (+Shift to loft)", W / 2, H * 0.52 + 54);
+      const small = W < 600;
+      ctx.fillText(this.touch ? "TAP to face the first ball" : "Click or press SPACE to face the first ball", W / 2, H * 0.52);
+      ctx.font = `600 ${Math.min(16, W * 0.036)}px system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      const lines = this.touch
+        ? small
+          ? ["Tap LEFT / MIDDLE / RIGHT as the ball arrives", "to play to leg / straight / off.", "SWIPE UP to loft it for six!"]
+          : ["Tap LEFT / MIDDLE / RIGHT as the ball arrives to play leg / straight / off", "SWIPE UP to loft it for six!"]
+        : ["Keys: A S D ground shots · Q W E lofted (leg / straight / off)", "or click left / middle / right of the pitch, drag up to loft"];
+      lines.forEach((l, i) => ctx.fillText(l, W / 2, H * 0.52 + 30 + i * 22));
     }
     if (this.phase === "runup" || this.phase === "delivery") {
-      const a = this.phase === "runup" ? Math.min(1, t / 400) * 0.22 : 0.14;
+      const a = this.phase === "runup" ? Math.min(1, t / 400) * 0.3 : 0.2;
       ctx.fillStyle = `rgba(255,255,255,${a})`;
       ctx.font = `800 ${Math.min(18, W * 0.035)}px system-ui, sans-serif`;
-      ctx.fillText("LEG", W * 0.18, H * 0.96);
-      ctx.fillText("STRAIGHT", W * 0.5, H * 0.96);
-      ctx.fillText("OFF", W * 0.82, H * 0.96);
+      const k = this.touch ? ["", "", ""] : [" · A/Q", " · S/W", " · D/E"];
+      ctx.fillText("LEG" + k[0], W * 0.18, H * 0.96);
+      ctx.fillText("STRAIGHT" + k[1], W * 0.5, H * 0.96);
+      ctx.fillText("OFF" + k[2], W * 0.82, H * 0.96);
       ctx.fillRect(W * 0.36, H * 0.93, 1, H * 0.06);
       ctx.fillRect(W * 0.64, H * 0.93, 1, H * 0.06);
     }

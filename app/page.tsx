@@ -81,9 +81,16 @@ export default function Home() {
 
       <section className="panel" style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
         <p className="label">How to bat</p>
-        <b style={{ color: "var(--text)" }}>Tap</b> left, middle or right of the screen as the ball arrives to play to leg, straight or off.{" "}
-        <b style={{ color: "var(--text)" }}>Swipe up</b> to loft it: big risk, big reward. On a keyboard: <b style={{ color: "var(--text)" }}>A S D</b> ground,{" "}
-        <b style={{ color: "var(--text)" }}>Q W E</b> lofted. Match the line of the ball for more boundaries. Turn your sound on for Bhaskar!
+        <p className="only-touch" style={{ margin: 0 }}>
+          As the ball arrives, <b style={{ color: "var(--text)" }}>tap</b> the left, middle or right of the screen to play to leg, straight or off.{" "}
+          <b style={{ color: "var(--text)" }}>Swipe up</b> to loft it: big risk, big reward. Landscape gives the widest view, but portrait works too.
+        </p>
+        <p className="only-mouse" style={{ margin: 0 }}>
+          As the ball arrives, press <b style={{ color: "var(--text)" }}>A S D</b> for ground shots or <b style={{ color: "var(--text)" }}>Q W E</b> to loft (leg /
+          straight / off). Or click the left, middle or right of the pitch, and drag up to loft. <b style={{ color: "var(--text)" }}>Space</b> bowls the next ball,{" "}
+          <b style={{ color: "var(--text)" }}>F</b> fullscreen, <b style={{ color: "var(--text)" }}>M</b> mute.
+        </p>
+        <p style={{ margin: "8px 0 0" }}>Match the line of the ball for more boundaries. Turn your sound on for Bhaskar!</p>
       </section>
     </main>
   );

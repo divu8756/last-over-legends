@@ -33,7 +33,8 @@ export default function Scoreboard({ match, winProb, hot, bowler }: { match: Mat
       <div className="sb-score">
         {match.runs}/{match.wickets}
         <small>
-          ({overs} ov) · {c.wickets - match.wickets} wkt left
+          <span className="sb-ov">({overs} ov) · </span>
+          {c.wickets - match.wickets} wkt left
         </small>
       </div>
       {match.status === "playing" && (
@@ -49,7 +50,9 @@ export default function Scoreboard({ match, winProb, hot, bowler }: { match: Mat
         ))}
       </div>
       <WinProbBar value={winProb} team={c.team.short} opp={c.opponent.short} />
-      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Bowling: {bowler}</div>
+      <div className="sb-bowler" style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+        Bowling: {bowler}
+      </div>
     </div>
   );
 }

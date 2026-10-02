@@ -102,10 +102,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .shell canvas { display: block; position: absolute; inset: 0; }
 .hud-top {
   position: absolute; top: 0; left: 0; right: 0;
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-  padding: max(10px, env(safe-area-inset-top)) 12px 0;
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px;
+  padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   pointer-events: none;
 }
+.hud-top .scoreboard { order: 1; }
+.hud-top .hud-buttons { order: 2; margin-left: auto; }
+.toast {
+  position: absolute; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 40px); transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 14px; font-size: 13px; font-weight: 700; z-index: 5; white-space: nowrap;
+  animation: fadeout 5s forwards; pointer-events: none;
+}
+@keyframes fadeout { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 .hud-top > * { pointer-events: auto; }
 .scoreboard {
   background: var(--panel);
@@ -117,7 +126,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .sb-team { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; }
 .sb-score { font-size: 30px; font-weight: 900; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.sb-score small { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+.sb-score small { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 6px; white-space: nowrap; }
 .sb-need { font-size: 14px; font-weight: 700; color: var(--gold); }
 .balls { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
 .ball-mark {
@@ -142,16 +151,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hot { color: #ff9f1c; font-weight: 900; font-size: 12px; letter-spacing: 0.08em; animation: pulse 0.8s infinite alternate; }
 @keyframes pulse { from { opacity: 0.6; } to { opacity: 1; } }
 
-.lower-third {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 34px);
-  width: min(760px, calc(100% - 24px));
+.caption {
+  order: 3;
+  flex: 1 1 100%;
   display: flex; gap: 10px; align-items: center;
-  background: linear-gradient(90deg, rgba(180, 20, 40, 0.92), rgba(10, 14, 40, 0.9) 120px);
+  background: linear-gradient(90deg, rgba(180, 20, 40, 0.92), rgba(10, 14, 40, 0.88) 110px);
   border-radius: 12px;
   padding: 8px 12px;
-  pointer-events: none;
+  pointer-events: none !important;
   border: 1px solid var(--line);
+  min-width: 0;
 }
 .lt-name { font-weight: 900; font-size: 12px; letter-spacing: 0.1em; white-space: nowrap; }
 .lt-name small { display: block; font-size: 9px; font-weight: 700; opacity: 0.8; }
@@ -194,3 +203,44 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .jersey[aria-pressed="true"] { border-color: var(--gold); }
 .jersey:disabled { opacity: 0.4; cursor: not-allowed; }
 .section { margin: 28px 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+
+/* device-specific copy */
+.only-touch { display: none; }
+@media (pointer: coarse) {
+  .only-touch { display: block; }
+  .only-mouse { display: none; }
+}
+
+/* ───── responsive overrides (keep last) ───── */
+/* wide screens: caption sits between the scoreboard and the buttons */
+@media (min-width: 760px) {
+  .hud-top .caption { order: 2; flex: 1 1 0; max-width: 760px; margin: 0 auto; }
+  .hud-top .hud-buttons { order: 3; margin-left: 0; }
+}
+/* short landscape phones: compact scoreboard */
+@media (max-height: 500px) {
+  .scoreboard { padding: 6px 10px; min-width: 0; }
+  .sb-score { font-size: 22px; }
+  .sb-score small { font-size: 12px; }
+  .sb-need { font-size: 13px; }
+  .sb-bowler, .winprob-label { display: none; }
+  .winprob { margin-top: 5px; }
+  .balls { margin-top: 4px; }
+  .ball-mark { min-width: 18px; height: 18px; font-size: 10px; }
+  .icon-btn { width: 36px; height: 36px; font-size: 15px; }
+  .lt-text { font-size: 13px; }
+}
+/* portrait phones */
+@media (max-width: 480px) {
+  .scoreboard { min-width: 0; max-width: calc(100vw - 168px); padding: 7px 10px; }
+  .hud-top { flex-wrap: wrap; }
+  .hud-top .hud-buttons { flex-shrink: 0; }
+  .sb-ov { display: none; }
+  .icon-btn { width: 36px; height: 36px; font-size: 15px; border-radius: 10px; }
+  .hud-buttons { gap: 5px; }
+  .sb-score { font-size: 26px; }
+  .sb-score small { font-size: 12px; margin-left: 4px; }
+  .sb-bowler { display: none; }
+  .lt-text { font-size: 13px; }
+  .lt-name { font-size: 10px; }
+}

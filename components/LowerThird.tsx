@@ -21,7 +21,7 @@ export default function LowerThird({ caption }: { caption: Caption | null }) {
 
   if (!caption) return null;
   return (
-    <div className="lower-third">
+    <div className="caption">
       <div className="lt-name">
         BHASKAR
         <small>ON AIR</small>

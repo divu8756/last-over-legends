@@ -16,10 +16,13 @@ export class Camera {
     this.W = W;
     this.H = H;
     this.cx = W / 2;
-    const creaseY = H * 0.9;
-    // fit both by height and by width (portrait phones)
-    const byHeight = ((creaseY - H * 0.34) * -this.camZ) / this.camY;
-    const byWidth = (W * 0.62 * -this.camZ) / 3.05;
+    const portrait = H > W * 1.1;
+    // portrait: crease higher (zone labels below) and a tighter crop so the pitch fills the width
+    const creaseY = H * (portrait ? 0.8 : 0.88);
+    // short portrait screens need more room for the HUD above the field
+    const horizonMin = H * (portrait ? (H < 720 ? 0.46 : 0.4) : 0.34);
+    const byHeight = ((creaseY - horizonMin) * -this.camZ) / this.camY;
+    const byWidth = (W * (portrait ? 1.05 : 0.62) * -this.camZ) / 3.05;
     this.F = Math.min(byHeight, byWidth);
     this.horizon = creaseY - (this.camY * this.F) / -this.camZ;
   }

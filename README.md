@@ -11,6 +11,16 @@ by Google Gemini, with a hand-written bank of 150+ lines as an instant fallback.
 
 Every team and player is fictional, and all art and sound are generated in code, so there are no asset files.
 
+## Phones, tablets and desktop
+
+The same build adapts to whatever it runs on:
+
+- **Phones (portrait and landscape):** tap or swipe to bat. The camera reframes for tall screens, and the HUD compacts on short landscape screens. A hint suggests rotating, but portrait is fully playable. Safe areas around notches and home bars are respected. On Android there's a fullscreen button. iPhones hide it because Safari doesn't support fullscreen for web pages.
+- **Tablets:** touch controls with the larger layout.
+- **Desktop and laptop:** keyboard (or mouse) controls. On-screen hints show the key for each zone, Bhaskar's caption sits in the top bar, and `F` toggles fullscreen.
+
+Control hints follow the input in use: touch hints after a tap, key hints after a key press.
+
 ## Controls
 
 | | Ground shot | Lofted shot |
@@ -18,7 +28,7 @@ Every team and player is fictional, and all art and sound are generated in code,
 | Touch | Tap left / middle / right (leg / straight / off) | Swipe up from that zone |
 | Keyboard | `A` `S` `D` or `←` `↓` `→` | `Q` `W` `E`, `↑`, or Shift + arrow |
 
-`Space` faces the next ball (or skips the commentary), `Esc` pauses, `M` mutes.
+`Space` faces the next ball (or skips the commentary), `Esc` pauses, `M` mutes, `F` toggles fullscreen.
 Time the swing so the bat meets the ball as the ring closes. International has no ring.
 
 ## Run locally
