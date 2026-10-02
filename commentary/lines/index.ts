@@ -2,6 +2,8 @@
  * Bhaskar's line bank. Placeholders: {name} batter, {bowler}, {team},
  * {opp}, {need} runs needed, {balls} balls left, {runs} team score.
  */
+export type Lang = "hi" | "en";
+
 export type CommentaryEvent =
   | "start"
   | "six"

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Game, type Phase } from "@/game/Game";
 import { createConfig, type MatchState } from "@/game/engine/match";
 import type { Difficulty, Mode } from "@/game/engine/types";
 import { Sfx } from "@/audio/sfx";
 import { Commentator, type Caption } from "@/commentary/commentator";
+import type { Lang } from "@/commentary/lines";
 import { JERSEYS } from "@/data/achievements";
 import { loadProfile, saveProfile } from "@/lib/storage";
 import { recordMatch, summarise } from "@/lib/progress";
@@ -24,7 +26,11 @@ interface HudState {
   hot: boolean;
 }
 
-export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; difficulty: Difficulty; teamId?: string }) {
+/** HUD buttons never take focus, so Space/Enter always reach the game. */
+const noFocus = { tabIndex: -1, onMouseDown: (e: React.MouseEvent) => e.preventDefault() };
+
+export default function GameShell({ mode, difficulty, teamId, lang = "hi" }: { mode: Mode; difficulty: Difficulty; teamId?: string; lang?: Lang }) {
+  const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
@@ -50,7 +56,7 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
     setMuted(profile.muted);
     const sfx = new Sfx();
     sfx.muted = profile.muted;
-    const comm = new Commentator(setCaption);
+    const comm = new Commentator(setCaption, lang);
     comm.setMuted(profile.muted);
     sfxRef.current = sfx;
     commRef.current = comm;
@@ -115,7 +121,7 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
       sfx.dispose();
       gameRef.current = null;
     };
-  }, [mode, difficulty, teamId, round]);
+  }, [mode, difficulty, teamId, lang, round]);
 
   const toggleMute = useCallback(() => {
     setMuted((m) => {
@@ -136,6 +142,15 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
     });
   }, []);
 
+  function again() {
+    setEnded(null);
+    setVerdict(null);
+    setUnlocked([]);
+    setCaption(null);
+    setHud(null);
+    setRound((r) => r + 1);
+  }
+
   const [canFullscreen, setCanFullscreen] = useState(false);
   useEffect(() => setCanFullscreen(!!document.fullscreenEnabled), []);
   const toggleFullscreen = useCallback(() => {
@@ -143,11 +158,30 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
     else void wrapRef.current?.requestFullscreen?.().catch(() => undefined);
   }, []);
 
+  const resume = useCallback(() => {
+    setPaused(false);
+    gameRef.current?.setPaused(false);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "p") togglePause();
-      if (e.key === "m") toggleMute();
-      if (e.key === "f") toggleFullscreen();
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "m") toggleMute();
+      if (k === "f") toggleFullscreen();
+      if (ended) return; // the end card has its own keys
+      if (paused) {
+        if (k === " " || k === "enter") {
+          e.preventDefault();
+          resume();
+        } else if (k === "r") {
+          setPaused(false);
+          again();
+        } else if (k === "q" || k === "h") router.push("/");
+        else if (k === "escape" || k === "p") togglePause();
+        return;
+      }
+      if (k === "escape" || k === "p") togglePause();
     };
     const onHidden = () => {
       if (document.hidden) setPaused(true);
@@ -158,16 +192,7 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
       window.removeEventListener("keydown", onKey);
       document.removeEventListener("visibilitychange", onHidden);
     };
-  }, [togglePause, toggleMute, toggleFullscreen]);
-
-  function again() {
-    setEnded(null);
-    setVerdict(null);
-    setUnlocked([]);
-    setCaption(null);
-    setHud(null);
-    setRound((r) => r + 1);
-  }
+  }, [togglePause, toggleMute, toggleFullscreen, resume, paused, ended, router]);
 
   return (
     <div className="shell" ref={wrapRef}>
@@ -188,12 +213,12 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
         <LowerThird caption={caption} />
         <div className="hud-buttons">
           {canFullscreen && (
-            <button className="icon-btn" onClick={toggleFullscreen} aria-label="Fullscreen" title="Fullscreen (F)">
+            <button className="icon-btn" {...noFocus} onClick={toggleFullscreen} aria-label="Fullscreen" title="Fullscreen (F)">
               ⛶
             </button>
           )}
           <MuteToggle muted={muted} onToggle={toggleMute} />
-          <button className="icon-btn" onClick={togglePause} aria-label="Pause" title="Pause (Esc)">
+          <button className="icon-btn" {...noFocus} onClick={togglePause} aria-label="Pause" title="Pause (Esc)">
             ⏸
           </button>
         </div>
@@ -203,14 +228,8 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
           <div className="card">
             <h2>Paused</h2>
             <div className="btn-row">
-              <button
-                className="btn primary"
-                onClick={() => {
-                  setPaused(false);
-                  gameRef.current?.setPaused(false);
-                }}
-              >
-                Resume
+              <button className="btn primary" {...noFocus} onClick={resume}>
+                Resume <kbd className="kbd only-mouse-inline">Space</kbd>
               </button>
               <button
                 className="btn"
@@ -219,10 +238,10 @@ export default function GameShell({ mode, difficulty, teamId }: { mode: Mode; di
                   again();
                 }}
               >
-                Restart
+                Restart <kbd className="kbd only-mouse-inline">R</kbd>
               </button>
               <Link className="btn" href="/">
-                Quit
+                Quit <kbd className="kbd only-mouse-inline">Q</kbd>
               </Link>
             </div>
           </div>

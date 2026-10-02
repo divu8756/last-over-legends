@@ -1,4 +1,7 @@
-import { LINES, type CommentaryEvent } from "./lines";
+import { LINES, type CommentaryEvent, type Lang } from "./lines";
+import { LINES_HI } from "./lines/hi";
+
+export const linesFor = (lang: Lang) => (lang === "hi" ? LINES_HI : LINES);
 
 export type Vars = Record<string, string | number>;
 
@@ -9,10 +12,13 @@ export function fill(template: string, vars: Vars): string {
 /** Picks lines without repeating until every line for that event has been used. */
 export class LineBank {
   private used = new Map<CommentaryEvent, Set<number>>();
-  constructor(private rng: () => number = Math.random) {}
+  constructor(
+    private lang: Lang = "hi",
+    private rng: () => number = Math.random,
+  ) {}
 
   pick(event: CommentaryEvent, vars: Vars): string {
-    const lines = LINES[event];
+    const lines = linesFor(this.lang)[event];
     let used = this.used.get(event);
     if (!used || used.size >= lines.length) {
       used = new Set();

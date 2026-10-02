@@ -1,8 +1,9 @@
 # Last Over Legends 🏏
 
 An arcade cricket chase for the browser. You get one over (or three), a target, and **Bhaskar**, a
-gloriously over-the-top commentator who talks you through every ball. His lines are generated live
-by Google Gemini, with a hand-written bank of 150+ lines as an instant fallback.
+gloriously over-the-top, **sarcastic Hindi commentator** who roasts you on every single ball. His lines are
+generated live by Google Gemini, with hand-written banks of 150+ Hindi and 150+ English lines as an
+instant fallback. Switch to English commentary on the title screen (`H`).
 
 - **Super Over**: 6 balls, 2 wickets, chase 14–24.
 - **Death Overs**: 18 balls. Gully: 30 to win with 5 wickets. Club: 38 with 4. International: 45 with 3.
@@ -17,7 +18,7 @@ The same build adapts to whatever it runs on:
 
 - **Phones (portrait and landscape):** tap or swipe to bat. The camera reframes for tall screens, and the HUD compacts on short landscape screens. A hint suggests rotating, but portrait is fully playable. Safe areas around notches and home bars are respected. On Android there's a fullscreen button. iPhones hide it because Safari doesn't support fullscreen for web pages.
 - **Tablets:** touch controls with the larger layout.
-- **Desktop and laptop:** keyboard (or mouse) controls. On-screen hints show the key for each zone, Bhaskar's caption sits in the top bar, and `F` toggles fullscreen.
+- **Desktop and laptop:** **keyboard only, no mouse needed.** Mouse clicks never play a shot, and every screen (title, pause, result card, locker) has keys. On-screen hints show the key for each zone, Bhaskar's caption sits in the top bar, and `F` toggles fullscreen.
 
 Control hints follow the input in use: touch hints after a tap, key hints after a key press.
 
@@ -28,7 +29,13 @@ Control hints follow the input in use: touch hints after a tap, key hints after 
 | Touch | Tap left / middle / right (leg / straight / off) | Swipe up from that zone |
 | Keyboard | `A` `S` `D` or `←` `↓` `→` | `Q` `W` `E`, `↑`, or Shift + arrow |
 
-`Space` faces the next ball (or skips the commentary), `Esc` pauses, `M` mutes, `F` toggles fullscreen.
+| Screen | Keys |
+|---|---|
+| Title | `Enter` Super Over · `D` Death Overs · `C` Daily · `L` Locker · `1` `2` `3` difficulty · `←` `→` team · `H` Hindi/English |
+| In game | `Space` start / next ball (skips commentary) · `Esc` pause · `M` mute · `F` fullscreen |
+| Paused | `Space` resume · `R` restart · `Q` quit |
+| Result card | `Enter` play again · `S` share card · `H` home |
+| Locker | `Esc` home |
 Time the swing so the bat meets the ball as the ring closes. International has no ring.
 
 ## Run locally
@@ -83,10 +90,12 @@ flowchart LR
 
 ## AI commentary design
 
-- **When it's used**: sixes, wickets, the final over, the last ball, the result and the end-of-match verdict. There are at most **6 AI calls per match**, and 2 of them are always kept back for the result and the verdict.
+- **When it's used**: **every ball**, plus the intro, the final over, the last ball, the result and the end-of-match verdict (up to 40 calls per match). Each request carries a random style (a blunt jab, a question to the batter, a filmy dialogue, breaking news…), a random theme, and Bhaskar's last three lines so he doesn't repeat himself. Hindi replies must be mostly Devanagari; player names stay in English letters.
+- **Quota**: if Gemini returns 429 (quota), the server stops calling it for 20s and the Hindi line bank speaks instead. Gemini's free tier allows only a handful of requests per minute, so several people playing at once will hear more bank lines. A paid key avoids that.
 - **Timeout**: if the AI line isn't back within **2.5s**, Bhaskar speaks a bank line instead and the late reply is thrown away. The server aborts its own Gemini call at 2.3s.
-- **Character lock**: the system prompt fixes Bhaskar's persona and tells him to use only the fictional names he's given. Each reply goes through `commentary/filter.ts`, which **rejects** anything over 30 words, anything out of character ("as an AI…"), markdown, any of ~70 banned real cricketer, commentator and league names, and any "Firstname Lastname" pair that isn't one of this match's fictional players. A rejected reply falls back to the line bank.
-- **Abuse protection**: input is validated and clamped, and there's a per-IP limit of 30 requests/minute. The limiter is in memory, so it's per serverless instance. That's fine for a demo. A global limit would need something like Upstash Redis.
+- **Character lock**: the system prompt fixes Bhaskar's persona (sarcastic but family-friendly) and tells him to use only the fictional names he's given. Each reply goes through `commentary/filter.ts`, which **rejects** anything over 32 words, anything out of character ("as an AI…", "एआई"), markdown, ~70 banned real cricketer, commentator and league names in English **and Devanagari**, an English reply to a Hindi request, and any "Firstname Lastname" pair that isn't one of this match's fictional players. A rejected reply falls back to the line bank.
+- **Voice**: the browser's Hindi voice (`hi-IN`, e.g. "Google हिन्दी" in Chrome, "Lekha" on Apple devices). If a device has no Hindi voice, the captions still show every line.
+- **Abuse protection**: input is validated and clamped, and there's a per-IP limit of 90 requests/minute. The limiter is in memory, so it's per serverless instance. That's fine for a demo. A global limit would need something like Upstash Redis.
 
 ## Outcome model
 

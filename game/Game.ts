@@ -140,6 +140,7 @@ export class Game {
   private ended = false;
   /** phone/tablet vs mouse+keyboard: changes the on-screen hints */
   private touch = false;
+  private introAt = -1;
   private crowdCache: HTMLCanvasElement | null = null;
 
   constructor(
@@ -179,6 +180,18 @@ export class Game {
     };
     this.raf = requestAnimationFrame(loop);
     this.emit();
+  }
+
+  /**
+   * First key press / tap: Bhaskar's intro (speech needs a user gesture),
+   * then the first ball once he's done. A second press skips the intro.
+   */
+  private beginIntro() {
+    if (this.introAt >= 0) {
+      this.requestNextBall(true);
+      return;
+    }
+    this.introAt = this.clock;
     this.cb.onMoment({ event: "start", vars: this.vars() });
   }
 
@@ -205,10 +218,16 @@ export class Game {
   // ───────────────────────────── input ─────────────────────────────
 
   private onPointerDown = (e: PointerEvent) => {
+    // desktop is keyboard-only: mouse clicks never play a shot
+    if (e.pointerType === "mouse") return;
     this.sfx.unlock();
-    this.touch = e.pointerType === "touch" || e.pointerType === "pen";
+    this.touch = true;
     if (this.paused) return;
-    if (this.phase === "ready" || (this.phase === "result" && this.nextBallAt > 0)) {
+    if (this.phase === "ready") {
+      this.beginIntro();
+      return;
+    }
+    if (this.phase === "result" && this.nextBallAt > 0) {
       this.requestNextBall(true);
       return;
     }
@@ -255,14 +274,20 @@ export class Game {
       w: { zone: "straight", lofted: true },
       e: { zone: "off", lofted: true },
       " ": { zone: "straight", lofted: false },
+      enter: { zone: "straight", lofted: false },
     };
     const shot = map[k];
     if (!shot) return;
     e.preventDefault();
     this.touch = false;
     this.sfx.unlock();
-    if (this.phase === "ready" || (this.phase === "result" && this.nextBallAt > 0)) {
-      if (k === " " || k === "enter") this.requestNextBall(true);
+    const go = k === " " || k === "enter";
+    if (this.phase === "ready") {
+      if (go) this.beginIntro();
+      return;
+    }
+    if (this.phase === "result" && this.nextBallAt > 0) {
+      if (go) this.requestNextBall(true);
       return;
     }
     if (this.phase === "delivery" && !this.shot && !this.outcome) this.swing(shot, this.now());
@@ -384,6 +409,11 @@ export class Game {
   private update() {
     const t = this.clock - this.phaseStart;
     const d = this.delivery;
+
+    if (this.phase === "ready" && this.introAt >= 0) {
+      const since = this.clock - this.introAt;
+      if (since > 800 && (!this.cb.busy() || since > 9000)) this.requestNextBall(true);
+    }
 
     if (this.phase === "runup" && t >= RUNUP_MS) {
       this.phase = "delivery";
@@ -575,7 +605,8 @@ export class Game {
     }
     if (after.status === "playing") this.cb.onMoment({ event, vars });
     else {
-      this.cb.onMoment({ event: after.status === "won" ? "win" : after.status === "tied" ? "tie" : "loss", vars });
+      // tell Bhaskar what happened on the deciding ball too
+      this.cb.onMoment({ event: after.status === "won" ? "win" : after.status === "tied" ? "tie" : "loss", vars: { ...vars, ball: event } });
       if (after.status === "won") this.celebrate();
     }
     this.emit();
@@ -612,8 +643,8 @@ export class Game {
         return;
       }
       this.nextBallAt = this.nextBallAt > 0 ? this.nextBallAt : this.clock;
-      // wait for Bhaskar to finish, but never more than 4.5s
-      if (!this.cb.busy() || this.clock - this.nextBallAt > 4500) this.requestNextBall(true);
+      // wait for Bhaskar to finish (Space skips), but never more than 9s
+      if (!this.cb.busy() || this.clock - this.nextBallAt > 9000) this.requestNextBall(true);
     }
   }
   private flightDone = false;
@@ -1083,19 +1114,19 @@ export class Game {
     const { W, H } = this.cam;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    if (this.phase === "ready") {
+    if (this.phase === "ready" && this.introAt < 0) {
       const a = 0.6 + 0.4 * Math.sin(this.clock / 300);
       ctx.fillStyle = `rgba(255,255,255,${a})`;
       ctx.font = `800 ${Math.min(28, W * 0.05)}px system-ui, sans-serif`;
       const small = W < 600;
-      ctx.fillText(this.touch ? "TAP to face the first ball" : "Click or press SPACE to face the first ball", W / 2, H * 0.52);
+      ctx.fillText(this.touch ? "TAP to face the first ball" : "Press SPACE to face the first ball", W / 2, H * 0.52);
       ctx.font = `600 ${Math.min(16, W * 0.036)}px system-ui, sans-serif`;
       ctx.fillStyle = "rgba(255,255,255,0.8)";
       const lines = this.touch
         ? small
           ? ["Tap LEFT / MIDDLE / RIGHT as the ball arrives", "to play to leg / straight / off.", "SWIPE UP to loft it for six!"]
           : ["Tap LEFT / MIDDLE / RIGHT as the ball arrives to play leg / straight / off", "SWIPE UP to loft it for six!"]
-        : ["Keys: A S D ground shots · Q W E lofted (leg / straight / off)", "or click left / middle / right of the pitch, drag up to loft"];
+        : ["A S D = ground shots · Q W E = lofted (leg / straight / off)", "Arrow keys work too (Shift or ↑ to loft) · Esc pause · M mute"];
       lines.forEach((l, i) => ctx.fillText(l, W / 2, H * 0.52 + 30 + i * 22));
     }
     if (this.phase === "runup" || this.phase === "delivery") {

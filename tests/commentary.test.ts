@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LINES } from "@/commentary/lines";
+import { LINES_HI } from "@/commentary/lines/hi";
 import { LineBank, fill } from "@/commentary/bank";
 import { filterLine } from "@/commentary/filter";
 import { RateLimiter } from "@/lib/rateLimit";
@@ -10,7 +11,7 @@ describe("line bank", () => {
   });
 
   it("never repeats until the event's lines are exhausted", () => {
-    const bank = new LineBank();
+    const bank = new LineBank("en");
     const n = LINES.six.length;
     const seen = new Set<string>();
     for (let i = 0; i < n; i++) seen.add(bank.pick("six", { name: "A", need: 1, balls: 1, bowler: "B" }));
@@ -27,6 +28,41 @@ describe("line bank", () => {
         allowed: ["Arjun Varma", "Ravi Kiran", "Desert Falcons", "Delta Dynamos"],
       })).not.toBeNull();
     }
+  });
+});
+
+describe("Hindi commentary", () => {
+  const vars = { name: "Arjun Varma", bowler: "Ravi Kiran", team: "Desert Falcons", opp: "Delta Dynamos", need: 4, balls: 2 };
+  const allowed = ["Arjun Varma", "Ravi Kiran", "Desert Falcons", "Delta Dynamos"];
+
+  it("covers every event with 150+ lines", () => {
+    for (const ev of Object.keys(LINES)) expect(LINES_HI[ev as keyof typeof LINES].length).toBeGreaterThan(2);
+    expect(Object.values(LINES_HI).flat().length).toBeGreaterThanOrEqual(150);
+  });
+
+  it("every Hindi bank line passes the Hindi filter", () => {
+    for (const line of Object.values(LINES_HI).flat()) {
+      expect(filterLine(fill(line, vars), { allowed, lang: "hi" }), line).not.toBeNull();
+    }
+  });
+
+  it("the default bank speaks Hindi", () => {
+    expect(new LineBank().pick("six", vars)).toMatch(/[\u0900-\u097F]/);
+  });
+
+  it("rejects real names written in Devanagari, but not lookalike words", () => {
+    expect(filterLine("ये शॉट तो कोहली जैसा था!", { allowed, lang: "hi" })).toBeNull();
+    expect(filterLine("धोनी स्टाइल फ़िनिश!", { allowed, lang: "hi" })).toBeNull();
+    expect(filterLine("गिल्लियां हवा में उड़ गईं!", { allowed, lang: "hi" })).not.toBeNull();
+  });
+
+  it("rejects an English reply when Hindi was asked for", () => {
+    expect(filterLine("What a shot from Arjun Varma!", { allowed, lang: "hi" })).toBeNull();
+    expect(filterLine("Arjun Varma ने गेंद को चांद पर भेज दिया!", { allowed, lang: "hi" })).not.toBeNull();
+  });
+
+  it("rejects out-of-character Hindi", () => {
+    expect(filterLine("मैं एक एआई हूं, क्रिकेट नहीं देख सकता।", { allowed, lang: "hi" })).toBeNull();
   });
 });
 

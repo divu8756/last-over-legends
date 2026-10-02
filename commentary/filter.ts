@@ -12,7 +12,17 @@ export const BANNED_NAMES = [
   "michael holding", "benaud", "boycott", "ipl", "bcci", "icc",
 ];
 
+/** The same people written in Devanagari. */
+export const BANNED_NAMES_HI = [
+  "कोहली", "विराट", "धोनी", "तेंदुलकर", "सचिन", "रोहित", "शर्मा", "बुमराह", "जडेजा", "पांड्या", "हार्दिक",
+  "गावस्कर", "कपिल", "द्रविड़", "गांगुली", "सहवाग", "युवराज", "गंभीर", "अश्विन", "शमी", "सिराज", "गिल",
+  "ऋषभ", "पंत", "सूर्यकुमार", "जायसवाल", "अय्यर", "कुंबले", "लक्ष्मण", "ब्रैडमैन", "पोंटिंग", "वॉर्न",
+  "लारा", "अकरम", "बाबर", "अफरीदी", "शोएब", "स्टोक्स", "स्मिथ", "वॉर्नर", "गेल", "शास्त्री", "भोगले",
+  "मांजरेकर", "चोपड़ा", "आईपीएल", "बीसीसीआई", "आईसीसी",
+];
+
 const OUT_OF_CHARACTER = [
+  /एआई/, /भाषा मॉडल/, /मैं (एक )?(AI|ए\.?आई)/i, /माफ़ (कीजिए|करें)/,
   /as an ai/i, /language model/i, /i cannot/i, /i can't/i, /i'm sorry/i, /i am sorry/i,
   /\bbhaskar here\b.*\bai\b/i, /http/i, /[#*_`<>{}\[\]]/,
 ];
@@ -20,7 +30,11 @@ const OUT_OF_CHARACTER = [
 export interface FilterOptions {
   /** fictional names from the current match that are allowed */
   allowed: string[];
+  /** expected language: a Hindi request must come back mostly in Devanagari */
+  lang?: "hi" | "en";
 }
+
+const DEVANAGARI = /[\u0900-\u097F]/g;
 
 /** Common capitalised words that are not names. */
 const COMMON = new Set(
@@ -43,6 +57,14 @@ export function filterLine(raw: string, opts: FilterOptions): string | null {
 
   const lower = line.toLowerCase();
   if (BANNED_NAMES.some((n) => new RegExp(`\\b${n}\\b`).test(lower))) return null;
+  // whole words only: गिल must not match गिल्लियां ("bails")
+  if (BANNED_NAMES_HI.some((n) => new RegExp(`(?<![\\p{L}\\p{M}])${n}(?![\\p{L}\\p{M}])`, "u").test(line))) return null;
+
+  if (opts.lang === "hi") {
+    const letters = line.replace(/[^\p{L}]/gu, "").length;
+    const deva = (line.match(DEVANAGARI) ?? []).length;
+    if (letters === 0 || deva / letters < 0.5) return null;
+  }
 
   // Anything that looks like "Firstname Lastname" must be one of our fictional players.
   const allowedWords = new Set(opts.allowed.flatMap((n) => n.split(/\s+/)));
@@ -51,6 +73,6 @@ export function filterLine(raw: string, opts: FilterOptions): string | null {
     const words = pair.split(/\s+/).filter((w) => !COMMON.has(w) && !allowedWords.has(w));
     if (words.length >= 2) return null;
   }
-  if (!/[.!?…]$/.test(line)) line += "!";
+  if (!/[.!?…।]$/.test(line)) line += "!";
   return line;
 }

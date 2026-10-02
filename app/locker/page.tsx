@@ -1,13 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ACHIEVEMENTS, JERSEYS } from "@/data/achievements";
 import { DEFAULT_PROFILE, loadProfile, saveProfile, type Profile } from "@/lib/storage";
 
 export default function Locker() {
   const [p, setP] = useState<Profile>(DEFAULT_PROFILE);
+  const router = useRouter();
   useEffect(() => setP(loadProfile()), []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (["escape", "backspace", "h"].includes(e.key.toLowerCase())) router.push("/");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
 
   function wear(id: string) {
     const next = { ...p, jersey: id };
@@ -26,7 +35,7 @@ export default function Locker() {
   return (
     <main className="locker">
       <Link href="/" className="btn">
-        ← Home
+        ← Home <kbd className="kbd only-mouse-inline">Esc</kbd>
       </Link>
       <h1>🏆 Locker</h1>
 

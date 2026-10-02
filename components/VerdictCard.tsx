@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import type { MatchState } from "@/game/engine/match";
 import { summarise } from "@/lib/progress";
 import { shareCard, shareOrDownload } from "@/lib/share";
@@ -19,10 +20,33 @@ export default function VerdictCard({
   onAgain: () => void;
 }) {
   const [status, setStatus] = useState("");
+  const router = useRouter();
+  const canAgain = match.config.mode !== "daily";
+  const shareRef = useRef<() => void>(() => undefined);
+
+  // keyboard: Enter/Space play again (or home for the daily), S share, H home
+  useEffect(() => {
+    // ignore keys for a moment so a late swing doesn't skip the result
+    const shownAt = performance.now();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || performance.now() - shownAt < 1200) return;
+      const k = e.key.toLowerCase();
+      if (k === "enter" || k === " ") {
+        e.preventDefault();
+        if (canAgain) onAgain();
+        else router.push("/");
+      } else if (k === "s") shareRef.current();
+      else if (k === "h" || k === "escape") router.push("/");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canAgain, onAgain, router]);
   const s = summarise(match);
   const title = match.status === "won" ? "YOU WON!" : match.status === "tied" ? "TIED!" : "SO CLOSE";
   const color = match.status === "won" ? "var(--green)" : match.status === "tied" ? "var(--gold)" : "var(--red)";
   const short = match.config.target - match.runs;
+
+  shareRef.current = () => void share();
 
   async function share() {
     setStatus("Making your card…");
@@ -81,16 +105,16 @@ export default function VerdictCard({
           ) : null;
         })}
         <div className="btn-row">
-          {match.config.mode !== "daily" && (
-            <button className="btn primary" onClick={onAgain}>
-              Play again
+          {canAgain && (
+            <button className="btn primary" tabIndex={-1} onClick={onAgain}>
+              Play again <kbd className="kbd only-mouse-inline">Enter</kbd>
             </button>
           )}
-          <button className="btn" onClick={share}>
-            Share card
+          <button className="btn" tabIndex={-1} onClick={share}>
+            Share card <kbd className="kbd only-mouse-inline">S</kbd>
           </button>
-          <Link className="btn" href="/">
-            Home
+          <Link className={canAgain ? "btn" : "btn primary"} href="/" tabIndex={-1}>
+            Home <kbd className="kbd only-mouse-inline">{canAgain ? "H" : "Enter"}</kbd>
           </Link>
         </div>
         {status && <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 0 }}>{status}</p>}

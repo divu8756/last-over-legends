@@ -17,5 +17,6 @@ export default async function PlayPage({
   if (!MODES.includes(mode as Mode)) notFound();
   const d = typeof sp.d === "string" && DIFFS.includes(sp.d as Difficulty) ? (sp.d as Difficulty) : "club";
   const team = typeof sp.team === "string" ? sp.team : undefined;
-  return <GameShell mode={mode as Mode} difficulty={d} teamId={team} />;
+  const lang = sp.lang === "en" ? "en" : "hi";
+  return <GameShell mode={mode as Mode} difficulty={d} teamId={team} lang={lang} />;
 }
